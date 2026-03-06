@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>TheLoop - Chat</title>
+    <title>The Loop Chat</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       
@@ -68,6 +68,13 @@
         background: #27ae60;
         border-radius: 50%;
         margin-right: 8px;
+      }
+
+      .user-email {
+        display: block;
+        font-size: 10px;
+        color: #95a5a6;
+        margin-top: 3px;
       }
 
       .main-chat {
@@ -208,7 +215,7 @@
         transform: scale(0.98);
       }
 
-      .username-input-modal {
+      .email-input-modal {
         display: none;
         position: fixed;
         top: 0;
@@ -221,7 +228,7 @@
         z-index: 1000;
       }
 
-      .username-input-modal.active {
+      .email-input-modal.active {
         display: flex;
       }
 
@@ -231,25 +238,49 @@
         border-radius: 10px;
         text-align: center;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        max-width: 400px;
       }
 
       .modal-content h1 {
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         color: #2c3e50;
+        font-size: 28px;
+      }
+
+      .modal-content .loop-logo {
+        font-size: 48px;
+        margin-bottom: 15px;
+      }
+
+      .modal-content p {
+        color: #666;
+        margin-bottom: 20px;
       }
 
       .modal-content input {
-        width: 250px;
+        width: 100%;
         padding: 12px;
         margin: 10px 0;
         border: 2px solid #ecf0f1;
         border-radius: 5px;
         font-size: 14px;
+        box-sizing: border-box;
+      }
+
+      .modal-content input:focus {
+        outline: none;
+        border-color: #00d1b2;
       }
 
       .modal-content button {
         margin-top: 15px;
         width: 100%;
+      }
+
+      .error-message {
+        color: #e74c3c;
+        font-size: 12px;
+        margin-top: 10px;
       }
 
       @media (max-width: 768px) {
@@ -264,24 +295,26 @@
     </style>
   </head>
   <body>
-    <div class="username-input-modal active" id="usernameModal">
+    <div class="email-input-modal active" id="emailModal">
       <div class="modal-content">
-        <h1>Welcome to TheLoop</h1>
-        <p>Enter your username to join the chat:</p>
-        <input type="text" id="usernameInput" placeholder="Your username" autocomplete="off" />
-        <button onclick="joinChat()">Join Chat</button>
+        <div class="loop-logo">🔄</div>
+        <h1>The Loop Chat</h1>
+        <p>Enter your email to join the conversation:</p>
+        <input type="email" id="emailInput" placeholder="your.email@example.com" autocomplete="off" required />
+        <button onclick="joinChat()">Join The Loop</button>
+        <div class="error-message" id="errorMessage"></div>
       </div>
     </div>
 
     <div class="container">
       <div class="sidebar">
-        <div class="sidebar-header">Users Online</div>
+        <div class="sidebar-header">👥 Users Online</div>
         <ul class="user-list" id="userList"></ul>
       </div>
 
       <div class="main-chat">
         <div class="chat-header">
-          <div class="chat-title">TheLoop Chat</div>
+          <div class="chat-title">🔄 The Loop Chat</div>
           <div class="online-count" id="onlineCount">0 users online</div>
         </div>
 
@@ -301,38 +334,55 @@
       const form = document.getElementById('form');
       const input = document.getElementById('input');
       const messagesList = document.getElementById('messages');
-      const usernameModal = document.getElementById('usernameModal');
-      const usernameInput = document.getElementById('usernameInput');
+      const emailModal = document.getElementById('emailModal');
+      const emailInput = document.getElementById('emailInput');
       const userList = document.getElementById('userList');
       const onlineCount = document.getElementById('onlineCount');
       const typingIndicator = document.getElementById('typingIndicator');
+      const errorMessage = document.getElementById('errorMessage');
       
       let currentUsername = '';
+      let currentEmail = '';
       let typingTimeout;
 
-      // Focus on username input when page loads
       window.addEventListener('load', () => {
-        usernameInput.focus();
+        emailInput.focus();
       });
 
-      // Allow Enter key to join
-      usernameInput.addEventListener('keypress', (e) => {
+      emailInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') joinChat();
       });
 
+      function validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+
       function joinChat() {
-        const username = usernameInput.value.trim();
-        if (username.length < 2) {
-          alert('Please enter a valid username (at least 2 characters)');
+        const email = emailInput.value.trim().toLowerCase();
+        errorMessage.textContent = '';
+
+        if (!email) {
+          errorMessage.textContent = 'Please enter an email address.';
           return;
         }
-        currentUsername = username;
-        socket.emit('user_join', username);
-        usernameModal.classList.remove('active');
+
+        if (!validateEmail(email)) {
+          errorMessage.textContent = 'Please enter a valid email address.';
+          return;
+        }
+
+        currentEmail = email;
+        currentUsername = email.split('@')[0]; // Username is everything before @
+        
+        socket.emit('user_join', { 
+          username: currentUsername, 
+          email: currentEmail 
+        });
+        
+        emailModal.classList.remove('active');
         input.focus();
       }
 
-      // Handle form submission
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         const message = input.value.trim();
@@ -343,7 +393,6 @@
         }
       });
 
-      // Typing indicator
       input.addEventListener('input', () => {
         socket.emit('typing', currentUsername);
         clearTimeout(typingTimeout);
@@ -352,7 +401,6 @@
         }, 1000);
       });
 
-      // Receive chat messages
       socket.on('chat message', (data) => {
         const li = document.createElement('li');
         li.classList.add(data.username === currentUsername ? 'message-own' : 'message-other');
@@ -363,14 +411,13 @@
         });
         
         li.innerHTML = `
-          <strong>${data.username}:</strong> ${escapeHtml(data.message)}
+          <strong>${escapeHtml(data.username)}:</strong> ${escapeHtml(data.message)}
           <div class="message-time">${messageTime}</div>
         `;
         messagesList.appendChild(li);
         messagesList.scrollTop = messagesList.scrollHeight;
       });
 
-      // User joined notification
       socket.on('user_joined', (data) => {
         const li = document.createElement('li');
         li.classList.add('message-system');
@@ -379,7 +426,6 @@
         messagesList.scrollTop = messagesList.scrollHeight;
       });
 
-      // User left notification
       socket.on('user_left', (data) => {
         const li = document.createElement('li');
         li.classList.add('message-system');
@@ -388,20 +434,21 @@
         messagesList.scrollTop = messagesList.scrollHeight;
       });
 
-      // Update user list
       socket.on('user_list', (users) => {
         userList.innerHTML = '';
         users.forEach(user => {
           const li = document.createElement('li');
           li.classList.add('user-item');
           if (user.username === currentUsername) li.classList.add('active');
-          li.innerHTML = `<span class="online-indicator"></span>${escapeHtml(user.username)}`;
+          li.innerHTML = `
+            <span class="online-indicator"></span>${escapeHtml(user.username)}
+            <span class="user-email">${escapeHtml(user.email)}</span>
+          `;
           userList.appendChild(li);
         });
         onlineCount.textContent = `${users.length} user${users.length !== 1 ? 's' : ''} online`;
       });
 
-      // Typing indicator
       socket.on('user_typing', (username) => {
         if (username !== currentUsername) {
           typingIndicator.textContent = `${escapeHtml(username)} is typing...`;
@@ -413,22 +460,22 @@
         typingIndicator.style.display = 'none';
       });
 
-      // Disconnect notification
       socket.on('disconnect', () => {
         const li = document.createElement('li');
         li.classList.add('message-system');
-        li.innerHTML = '<em>Connection lost. Attempting to reconnect...</em>';
+        li.innerHTML = '<em>⚠️ Connection lost. Attempting to reconnect...</em>';
         messagesList.appendChild(li);
       });
 
-      // Reconnect notification
       socket.on('connect', () => {
-        if (currentUsername) {
-          socket.emit('user_join', currentUsername);
+        if (currentEmail) {
+          socket.emit('user_join', { 
+            username: currentUsername, 
+            email: currentEmail 
+          });
         }
       });
 
-      // Helper function to escape HTML
       function escapeHtml(text) {
         const map = {
           '&': '&amp;',
