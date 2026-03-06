@@ -8,7 +8,7 @@ const io = require('socket.io')(http, {
   }
 });
 
-// IMPORTANT: Listen on 0.0.0.0 for Codespaces
+// Listen on 0.0.0.0 for Codespaces
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
@@ -23,24 +23,39 @@ app.get('/', (req, res) => {
 // Store active users
 const users = new Map();
 
+// Email validation function
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // User joins
-  socket.on('user_join', (username) => {
-    users.set(socket.id, { username, socketId: socket.id });
+  // User joins with email
+  socket.on('user_join', (data) => {
+    // Validate email
+    if (!data.email || !validateEmail(data.email)) {
+      socket.emit('login_error', 'Invalid email address');
+      return;
+    }
+
+    users.set(socket.id, { 
+      username: data.username, 
+      email: data.email, 
+      socketId: socket.id 
+    });
     
     // Notify all users about the new user
     io.emit('user_joined', {
-      username: username,
-      message: `${username} joined the chat`,
+      username: data.username,
+      message: `${data.username} joined The Loop`,
       timestamp: new Date().toISOString()
     });
     
     // Send updated user list
     io.emit('user_list', Array.from(users.values()));
-    console.log(`${username} joined. Total users: ${users.size}`);
+    console.log(`${data.username} (${data.email}) joined. Total users: ${users.size}`);
   });
 
   // Chat message
@@ -84,7 +99,7 @@ io.on('connection', (socket) => {
       users.delete(socket.id);
       io.emit('user_left', {
         username: user.username,
-        message: `${user.username} left the chat`,
+        message: `${user.username} left The Loop`,
         timestamp: new Date().toISOString()
       });
       io.emit('user_list', Array.from(users.values()));
@@ -95,6 +110,6 @@ io.on('connection', (socket) => {
 
 // Listen on 0.0.0.0 to accept external connections
 http.listen(PORT, HOST, () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`The Loop Chat Server running on http://0.0.0.0:${PORT}`);
   console.log(`Access it via the Codespace URL provided by GitHub`);
 });
