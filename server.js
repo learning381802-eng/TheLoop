@@ -20,69 +20,85 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/Index.html');
 });
 
-// In-memory storage (replace with database for production)
+// In-memory storage
 const users = new Map();
-const conversations = new Map();
+const servers = new Map();
+const channels = new Map();
 const messages = new Map();
-let conversationCounter = 0;
-
-// User profiles storage
 const userProfiles = new Map();
+let serverCounter = 0;
+let channelCounter = 0;
+let messageCounter = 0;
 
-// Routes for API endpoints
+// API Routes
 app.get('/api/users/:userId', (req, res) => {
   const profile = userProfiles.get(req.params.userId);
-  if (profile) {
-    res.json(profile);
-  } else {
-    res.status(404).json({ error: 'User not found' });
-  }
+  res.json(profile || {});
 });
 
 app.post('/api/users/:userId/profile', (req, res) => {
-  const { bio, avatar } = req.body;
+  const { username, bio, avatar, status } = req.body;
   const profile = userProfiles.get(req.params.userId) || {};
-  profile.bio = bio;
-  profile.avatar = avatar;
+  Object.assign(profile, { username, bio, avatar, status });
   userProfiles.set(req.params.userId, profile);
   res.json(profile);
 });
 
-app.get('/api/conversations', (req, res) => {
-  res.json(Array.from(conversations.values()));
+app.get('/api/servers', (req, res) => {
+  res.json(Array.from(servers.values()));
 });
 
-app.post('/api/conversations', (req, res) => {
-  const { name, members, isGroup } = req.body;
-  const convId = `conv_${++conversationCounter}`;
-  const conversation = {
-    id: convId,
+app.post('/api/servers', (req, res) => {
+  const { name, owner } = req.body;
+  const serverId = `srv_${++serverCounter}`;
+  const server = {
+    id: serverId,
     name,
-    members,
-    isGroup,
+    owner,
+    members: [owner],
+    icon: null,
     createdAt: new Date(),
-    avatar: null
+    roles: []
   };
-  conversations.set(convId, conversation);
-  messages.set(convId, []);
-  res.json(conversation);
+  servers.set(serverId, server);
+  res.json(server);
 });
 
-app.get('/api/messages/:conversationId', (req, res) => {
-  const msgs = messages.get(req.params.conversationId) || [];
+app.get('/api/servers/:serverId/channels', (req, res) => {
+  const chans = Array.from(channels.values()).filter(c => c.serverId === req.params.serverId);
+  res.json(chans);
+});
+
+app.post('/api/channels', (req, res) => {
+  const { serverId, name, type } = req.body;
+  const channelId = `ch_${++channelCounter}`;
+  const channel = {
+    id: channelId,
+    serverId,
+    name,
+    type, // 'text' or 'voice'
+    topic: '',
+    createdAt: new Date()
+  };
+  channels.set(channelId, channel);
+  messages.set(channelId, []);
+  res.json(channel);
+});
+
+app.get('/api/messages/:channelId', (req, res) => {
+  const msgs = messages.get(req.params.channelId) || [];
   res.json(msgs);
 });
 
-// Socket.io connection handling
+// Socket.io
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // User joins
   socket.on('user_join', (data) => {
     const { email, username } = data;
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      socket.emit('login_error', 'Invalid email address');
+      socket.emit('login_error', 'Invalid email');
       return;
     }
 
@@ -91,10 +107,10 @@ io.on('connection', (socket) => {
       userId,
       username,
       email,
-      socketId: socket.id
+      socketId: socket.id,
+      status: 'online'
     });
 
-    // Initialize user profile if doesn't exist
     if (!userProfiles.has(userId)) {
       userProfiles.set(userId, {
         userId,
@@ -102,117 +118,150 @@ io.on('connection', (socket) => {
         email,
         bio: '',
         avatar: null,
+        status: 'online',
         createdAt: new Date()
       });
     }
 
     socket.join(userId);
-    io.emit('user_online', {
-      userId,
-      username,
-      email
-    });
-
+    io.emit('user_online', users.get(socket.id));
     io.emit('user_list', Array.from(users.values()));
-    console.log(`${username} (${email}) joined. Total users: ${users.size}`);
   });
 
-  // Send message
+  socket.on('create_server', (data) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+
+    const serverId = `srv_${++serverCounter}`;
+    const server = {
+      id: serverId,
+      name: data.name,
+      owner: user.userId,
+      members: [user.userId],
+      icon: null,
+      roles: []
+    };
+
+    servers.set(serverId, server);
+
+    // Create default #general channel
+    const channelId = `ch_${++channelCounter}`;
+    channels.set(channelId, {
+      id: channelId,
+      serverId,
+      name: 'general',
+      type: 'text',
+      topic: 'General discussion'
+    });
+    messages.set(channelId, []);
+
+    socket.emit('server_created', server);
+  });
+
+  socket.on('create_channel', (data) => {
+    const { serverId, name, type } = data;
+    const channelId = `ch_${++channelCounter}`;
+    const channel = {
+      id: channelId,
+      serverId,
+      name,
+      type,
+      topic: ''
+    };
+    channels.set(channelId, channel);
+    messages.set(channelId, []);
+    io.emit('channel_created', channel);
+  });
+
+  socket.on('join_channel', (channelId) => {
+    socket.join(channelId);
+  });
+
   socket.on('send_message', (data) => {
     const user = users.get(socket.id);
     if (!user) return;
 
+    const messageId = `msg_${++messageCounter}`;
     const messageData = {
-      id: `msg_${Date.now()}_${Math.random()}`,
-      conversationId: data.conversationId,
+      id: messageId,
+      channelId: data.channelId,
       userId: user.userId,
       username: user.username,
       text: data.text,
       image: data.image || null,
       timestamp: new Date().toISOString(),
-      reactions: []
+      reactions: {},
+      edited: false,
+      replies: [],
+      mentions: data.mentions || []
     };
 
-    // Store message
-    if (!messages.has(data.conversationId)) {
-      messages.set(data.conversationId, []);
+    if (!messages.has(data.channelId)) {
+      messages.set(data.channelId, []);
     }
-    messages.get(data.conversationId).push(messageData);
+    messages.get(data.channelId).push(messageData);
 
-    // Emit to all members in conversation
-    const conversation = conversations.get(data.conversationId);
-    if (conversation) {
-      conversation.members.forEach(memberId => {
-        io.to(memberId).emit('new_message', messageData);
+    io.to(data.channelId).emit('new_message', messageData);
+  });
+
+  socket.on('edit_message', (data) => {
+    const msgs = messages.get(data.channelId);
+    const msg = msgs.find(m => m.id === data.messageId);
+    if (msg) {
+      msg.text = data.text;
+      msg.edited = true;
+      io.to(data.channelId).emit('message_edited', msg);
+    }
+  });
+
+  socket.on('delete_message', (data) => {
+    const msgs = messages.get(data.channelId);
+    const index = msgs.findIndex(m => m.id === data.messageId);
+    if (index !== -1) {
+      msgs.splice(index, 1);
+      io.to(data.channelId).emit('message_deleted', data.messageId);
+    }
+  });
+
+  socket.on('react_message', (data) => {
+    const msgs = messages.get(data.channelId);
+    const msg = msgs.find(m => m.id === data.messageId);
+    if (msg) {
+      const user = users.get(socket.id);
+      if (!msg.reactions[data.emoji]) {
+        msg.reactions[data.emoji] = [];
+      }
+      if (!msg.reactions[data.emoji].includes(user.userId)) {
+        msg.reactions[data.emoji].push(user.userId);
+      }
+      io.to(data.channelId).emit('message_reacted', msg);
+    }
+  });
+
+  socket.on('typing', (data) => {
+    const user = users.get(socket.id);
+    if (user) {
+      io.to(data.channelId).emit('user_typing', {
+        channelId: data.channelId,
+        username: user.username,
+        userId: user.userId
       });
     }
   });
 
-  // Create group chat
-  socket.on('create_group', (data) => {
-    const { name, members } = data;
-    const user = users.get(socket.id);
-
-    if (!user) return;
-
-    const convId = `conv_${++conversationCounter}`;
-    const conversation = {
-      id: convId,
-      name,
-      members: [...new Set([user.userId, ...members])],
-      isGroup: true,
-      createdAt: new Date(),
-      avatar: null
-    };
-
-    conversations.set(convId, conversation);
-    messages.set(convId, []);
-
-    // Notify all group members
-    conversation.members.forEach(memberId => {
-      io.to(memberId).emit('group_created', conversation);
+  socket.on('stop_typing', (data) => {
+    io.to(data.channelId).emit('user_stop_typing', {
+      channelId: data.channelId
     });
   });
 
-  // Start direct message
-  socket.on('start_dm', (data) => {
-    const user = users.get(socket.id);
-    const { recipientId } = data;
-
-    if (!user) return;
-
-    // Create DM conversation ID (sorted for consistency)
-    const dmId = [user.userId, recipientId].sort().join('_dm_');
-
-    if (!conversations.has(dmId)) {
-      const conversation = {
-        id: dmId,
-        name: null,
-        members: [user.userId, recipientId],
-        isGroup: false,
-        createdAt: new Date()
-      };
-      conversations.set(dmId, conversation);
-      messages.set(dmId, []);
-    }
-
-    socket.emit('dm_opened', conversations.get(dmId));
-  });
-
-  // Update user profile
   socket.on('update_profile', (data) => {
     const user = users.get(socket.id);
     if (!user) return;
 
     const profile = userProfiles.get(user.userId) || {};
-    profile.bio = data.bio;
-    if (data.avatar) profile.avatar = data.avatar;
-    profile.username = data.username;
-
+    Object.assign(profile, data);
     userProfiles.set(user.userId, profile);
-
-    // Update in users list
-    user.username = data.username;
 
     io.emit('profile_updated', {
       userId: user.userId,
@@ -220,53 +269,27 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Typing indicator
-  socket.on('typing', (data) => {
+  socket.on('set_status', (status) => {
     const user = users.get(socket.id);
-    if (!user) return;
-
-    const conversation = conversations.get(data.conversationId);
-    if (conversation) {
-      conversation.members.forEach(memberId => {
-        if (memberId !== user.userId) {
-          io.to(memberId).emit('user_typing', {
-            conversationId: data.conversationId,
-            username: user.username
-          });
-        }
+    if (user) {
+      user.status = status;
+      io.emit('user_status_changed', {
+        userId: user.userId,
+        status
       });
     }
   });
 
-  socket.on('stop_typing', (data) => {
-    const user = users.get(socket.id);
-    if (!user) return;
-
-    const conversation = conversations.get(data.conversationId);
-    if (conversation) {
-      conversation.members.forEach(memberId => {
-        if (memberId !== user.userId) {
-          io.to(memberId).emit('user_stop_typing', {
-            conversationId: data.conversationId
-          });
-        }
-      });
-    }
-  });
-
-  // Disconnect
   socket.on('disconnect', () => {
     const user = users.get(socket.id);
     if (user) {
       users.delete(socket.id);
       io.emit('user_offline', user.userId);
       io.emit('user_list', Array.from(users.values()));
-      console.log(`${user.username} disconnected. Total users: ${users.size}`);
     }
   });
 });
 
 http.listen(PORT, HOST, () => {
   console.log(`The Loop Chat Server running on http://0.0.0.0:${PORT}`);
-  console.log(`Access it via the Codespace URL provided by GitHub`);
 });
