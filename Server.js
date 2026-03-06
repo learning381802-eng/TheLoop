@@ -8,7 +8,9 @@ const io = require('socket.io')(http, {
   }
 });
 
+// IMPORTANT: Listen on 0.0.0.0 for Codespaces
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
 // Serve static files
 app.use(express.static('public'));
@@ -63,7 +65,6 @@ io.on('connection', (socket) => {
         message: data.message,
         timestamp: new Date().toISOString()
       });
-      console.log(`Private message from ${sender.username} to ${data.recipientId}`);
     }
   });
 
@@ -92,6 +93,8 @@ io.on('connection', (socket) => {
   });
 });
 
-http.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// Listen on 0.0.0.0 to accept external connections
+http.listen(PORT, HOST, () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Access it via the Codespace URL provided by GitHub`);
 });
