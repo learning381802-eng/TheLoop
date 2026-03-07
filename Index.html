@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>The Loop - Discord-like Chat</title>
+  <title>The Loop - Advanced Chat</title>
   <style>
     * {
       margin: 0;
@@ -12,6 +12,9 @@
     :root {
       --primary: #5865f2;
       --secondary: #4752c4;
+      --success: #43b581;
+      --danger: #f04747;
+      --warning: #faa61a;
       --background: #36393f;
       --surface: #2f3136;
       --surface-secondary: #202225;
@@ -29,8 +32,189 @@
       overflow: hidden;
     }
 
-    /* Server List Sidebar */
-    .server-sidebar {
+    /* Modals & Overlays */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h2 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--background);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+    }
+
+    .btn-secondary:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #e63f40;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    /* Layout */
+    .container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .sidebar {
       width: 72px;
       background: var(--surface-secondary);
       display: flex;
@@ -38,57 +222,10 @@
       align-items: center;
       padding: 12px 0;
       gap: 12px;
-      border-right: 1px solid var(--border);
       overflow-y: auto;
+      border-right: 1px solid var(--border);
     }
 
-    .server-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--primary);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 20px;
-    }
-
-    .server-icon:hover {
-      border-radius: 30%;
-      transform: scale(1.1);
-    }
-
-    .server-icon.active {
-      background: var(--primary);
-      border-radius: 30%;
-    }
-
-    .server-add {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--surface);
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 24px;
-      transition: all 0.2s;
-      border: 2px dashed var(--primary);
-    }
-
-    .server-add:hover {
-      color: var(--primary);
-      background: var(--primary);
-      color: white;
-    }
-
-    /* Channel Sidebar */
     .channel-sidebar {
       width: 240px;
       background: var(--surface);
@@ -103,17 +240,21 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
     }
 
     .channel-header-title {
       font-weight: 600;
       font-size: 14px;
-      color: var(--text-primary);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .channel-header-actions {
+    .channel-actions {
       display: flex;
-      gap: 8px;
+      gap: 4px;
     }
 
     .icon-btn {
@@ -123,12 +264,12 @@
       background: transparent;
       color: var(--text-secondary);
       cursor: pointer;
-      border-radius: 4px;
-      transition: background 0.2s;
+      border-radius: 6px;
+      transition: all 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 16px;
     }
 
     .icon-btn:hover {
@@ -146,8 +287,8 @@
       padding: 8px 16px;
       margin: 0 8px;
       cursor: pointer;
-      transition: background 0.2s;
-      border-radius: 4px;
+      transition: all 0.2s;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -161,21 +302,12 @@
     }
 
     .channel-item.active {
-      background: var(--background);
-      color: var(--primary);
+      background: var(--primary);
+      color: white;
     }
 
-    .channel-icon {
-      width: 20px;
-      height: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* Main Chat Area */
-    .main-container {
-      flex-grow: 1;
+    .main-content {
+      flex: 1;
       display: flex;
       flex-direction: column;
       background: var(--background);
@@ -188,16 +320,7 @@
       align-items: center;
       justify-content: space-between;
       height: 48px;
-    }
-
-    .chat-header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .chat-icon {
-      font-size: 20px;
+      background: var(--surface);
     }
 
     .chat-title {
@@ -205,26 +328,26 @@
       font-size: 15px;
     }
 
-    .chat-header-right {
-      display: flex;
-      gap: 8px;
+    .chat-info {
+      font-size: 12px;
+      color: var(--text-secondary);
     }
 
-    /* Messages Area */
-    #messages {
-      flex-grow: 1;
+    .messages-container {
+      flex: 1;
       overflow-y: auto;
       padding: 16px 24px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
 
     .message {
       display: flex;
       gap: 16px;
-      padding: 2px 0;
-      margin-bottom: 4px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      transition: background 0.2s;
       animation: slideIn 0.2s ease-in;
     }
 
@@ -241,31 +364,39 @@
 
     .message:hover {
       background: var(--surface-secondary);
-      padding: 2px 4px;
-      border-radius: 4px;
+    }
+
+    .message.deleted {
+      opacity: 0.5;
+      font-style: italic;
     }
 
     .message-avatar {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      background: var(--primary);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 500;
+      font-weight: 600;
       flex-shrink: 0;
       cursor: pointer;
       font-size: 14px;
+      transition: transform 0.2s;
+    }
+
+    .message-avatar:hover {
+      transform: scale(1.1);
     }
 
     .message-content {
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 4px;
       min-width: 0;
-      flex-grow: 1;
     }
 
     .message-header {
@@ -275,18 +406,23 @@
     }
 
     .message-author {
-      font-weight: 500;
+      font-weight: 600;
       font-size: 13px;
       cursor: pointer;
-      color: var(--text-primary);
+      transition: color 0.2s;
     }
 
     .message-author:hover {
-      text-decoration: underline;
+      color: var(--primary);
     }
 
     .message-time {
       font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .message-edited {
+      font-size: 10px;
       color: var(--text-secondary);
     }
 
@@ -295,48 +431,26 @@
       line-height: 1.5;
       word-wrap: break-word;
       white-space: pre-wrap;
+      color: var(--text-primary);
     }
 
     .message-image {
-      max-width: 400px;
+      max-width: 300px;
       border-radius: 8px;
       margin-top: 8px;
       cursor: pointer;
+      transition: transform 0.2s;
     }
 
-    .message-reactions {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-
-    .reaction {
-      background: var(--surface-secondary);
-      border: 1px solid var(--border);
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .reaction:hover {
-      background: var(--surface);
-    }
-
-    .reaction-count {
-      font-size: 11px;
-      color: var(--text-secondary);
+    .message-image:hover {
+      transform: scale(1.02);
     }
 
     .message-actions {
       display: none;
       gap: 4px;
       margin-left: auto;
+      flex-shrink: 0;
     }
 
     .message:hover .message-actions {
@@ -344,18 +458,18 @@
     }
 
     .action-btn {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       border: none;
-      background: var(--surface-secondary);
+      background: var(--surface);
       color: var(--text-secondary);
       cursor: pointer;
       border-radius: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      transition: background 0.2s, color 0.2s;
+      font-size: 12px;
+      transition: all 0.2s;
     }
 
     .action-btn:hover {
@@ -363,15 +477,40 @@
       color: white;
     }
 
-    .message-edited {
-      font-size: 11px;
+    .message-reactions {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .reaction {
+      background: var(--surface-secondary);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .reaction:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .reaction-count {
+      font-size: 10px;
       color: var(--text-secondary);
-      margin-left: 4px;
     }
 
     .typing-indicator {
       font-size: 12px;
       color: var(--text-secondary);
+      font-style: italic;
       padding: 8px 0;
     }
 
@@ -398,23 +537,31 @@
       30% { opacity: 1; }
     }
 
-    /* Input Area */
     .input-area {
       padding: 16px 24px;
       border-top: 1px solid var(--border);
+      background: var(--surface);
     }
 
     .input-wrapper {
       display: flex;
-      gap: 8px;
+      gap: 12px;
       align-items: flex-end;
-      background: var(--surface-secondary);
+    }
+
+    .input-field {
+      flex: 1;
+      background: var(--background);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
     }
 
     #messageInput {
-      flex-grow: 1;
+      flex: 1;
       border: none;
       outline: none;
       background: transparent;
@@ -442,209 +589,69 @@
       color: var(--primary);
       cursor: pointer;
       font-size: 16px;
-      transition: opacity 0.2s;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .input-action-btn:hover {
-      opacity: 0.8;
+      transform: scale(1.2);
+      color: var(--secondary);
     }
 
     #imageInput, #fileInput {
       display: none;
     }
 
-    /* Modals */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .modal.active {
-      display: flex;
-    }
-
-    .modal-content {
-      background: var(--surface);
-      border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      max-width: 480px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-    }
-
-    .modal-header {
-      padding: 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .modal-header h2 {
-      font-size: 18px;
+    .user-badge {
+      background: var(--primary);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
       font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: var(--text-secondary);
-    }
-
-    .modal-body {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .form-group label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-primary);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
-    .form-group input,
-    .form-group textarea,
-    .form-group select {
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: var(--background);
-      color: var(--text-primary);
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group textarea:focus,
-    .form-group select:focus {
-      border-color: var(--primary);
-    }
-
-    .form-group textarea {
-      resize: vertical;
-      min-height: 80px;
-    }
-
-    .modal-footer {
-      padding: 16px 24px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: var(--secondary);
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--primary);
-      border: 1px solid var(--primary);
-    }
-
-    .btn-secondary:hover {
-      background: var(--primary);
-      color: white;
-    }
-
-    /* User List */
-    .user-select {
-      max-height: 200px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: var(--background);
-    }
-
-    .user-select-item {
-      padding: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .user-select-item:hover {
-      background: var(--surface-secondary);
-    }
-
-    .user-select-item:last-child {
-      border-bottom: none;
-    }
-
-    .user-select-item input[type="checkbox"] {
-      cursor: pointer;
-    }
-
-    /* User Status */
-    .status-badge {
-      width: 12px;
-      height: 12px;
+    .status-indicator {
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       display: inline-block;
       margin-right: 4px;
     }
 
-    .status-online {
-      background: #43b581;
+    .status-online { background: var(--success); }
+    .status-idle { background: var(--warning); }
+    .status-dnd { background: var(--danger); }
+    .status-offline { background: var(--text-secondary); }
+
+    .server-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 20px;
     }
 
-    .status-idle {
-      background: #faa61a;
+    .server-icon:hover {
+      border-radius: 30%;
+      transform: scale(1.1);
     }
 
-    .status-dnd {
-      background: #f04747;
+    .server-icon.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 30%;
     }
 
-    .status-offline {
-      background: #747f8d;
-    }
-
-    /* Member List */
     .member-list {
       width: 200px;
       background: var(--surface);
@@ -655,12 +662,13 @@
       padding: 12px 0;
     }
 
-    .member-list-header {
+    .member-header {
       padding: 8px 16px;
       font-size: 12px;
       font-weight: 600;
       color: var(--text-secondary);
       text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
     }
 
     .member-item {
@@ -686,12 +694,65 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 500;
+      font-weight: 600;
       font-size: 12px;
       flex-shrink: 0;
     }
 
-    /* Empty State */
+    .search-box {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--background);
+      color: var(--text-primary);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--primary);
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      animation: slideInRight 0.3s ease-out;
+      z-index: 999;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .notification.danger {
+      border-left-color: var(--danger);
+    }
+
+    .notification.success {
+      border-left-color: var(--success);
+    }
+
     .empty-state {
       display: flex;
       flex-direction: column;
@@ -708,7 +769,7 @@
     }
 
     .empty-state-text {
-      font-size: 16px;
+      font-size: 14px;
       text-align: center;
     }
 
@@ -721,160 +782,198 @@
   </style>
 </head>
 <body>
-  <!-- Login Modal -->
-  <div class="modal active" id="loginModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>🔄 The Loop</h2>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="loginEmail" placeholder="your.email@example.com" />
+  <div class="container">
+    <!-- Auth Modal -->
+    <div class="modal active" id="authModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🔄 The Loop Chat</h2>
         </div>
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="loginUsername" placeholder="Your username" />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary" onclick="handleLogin()">Join</button>
-      </div>
-    </div>
-  </div>
+        <div class="modal-body">
+          <div id="authTabs" style="display: flex; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+            <button class="btn btn-small btn-primary" onclick="switchAuth('login')">Login</button>
+            <button class="btn btn-small btn-secondary" onclick="switchAuth('register')">Register</button>
+          </div>
 
-  <!-- Create Server Modal -->
-  <div class="modal" id="createServerModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Create Server</h2>
-        <button class="close-btn" onclick="closeModal('createServerModal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Server Name</label>
-          <input type="text" id="serverName" placeholder="e.g., Project Team" />
-        </div>
-        <div class="form-group">
-          <label>Server Icon</label>
-          <input type="text" id="serverIcon" placeholder="Emoji or URL" value="🎮" />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('createServerModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="handleCreateServer()">Create</button>
-      </div>
-    </div>
-  </div>
+          <div id="loginForm">
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="loginEmail" placeholder="your.email@example.com" />
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="loginPassword" placeholder="••••••••" />
+            </div>
+          </div>
 
-  <!-- Create Channel Modal -->
-  <div class="modal" id="createChannelModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Create Channel</h2>
-        <button class="close-btn" onclick="closeModal('createChannelModal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Channel Type</label>
-          <select id="channelType">
-            <option value="text">Text Channel</option>
-            <option value="voice">Voice Channel</option>
-          </select>
+          <div id="registerForm" style="display: none;">
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="registerEmail" placeholder="your.email@example.com" />
+            </div>
+            <div class="form-group">
+              <label>Username</label>
+              <input type="text" id="registerUsername" placeholder="Choose a username" />
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="registerPassword" placeholder="••••••••" />
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Channel Name</label>
-          <input type="text" id="channelName" placeholder="e.g., #general" />
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="authBtn" onclick="handleAuth()">Login</button>
         </div>
-        <div class="form-group">
-          <label>Topic</label>
-          <textarea id="channelTopic" placeholder="Channel topic/description"></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('createChannelModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="handleCreateChannel()">Create</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Profile Modal -->
-  <div class="modal" id="profileModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>User Profile</h2>
-        <button class="close-btn" onclick="closeModal('profileModal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="profileUsername" />
-        </div>
-        <div class="form-group">
-          <label>Bio</label>
-          <textarea id="profileBio" placeholder="Tell us about yourself..."></textarea>
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select id="profileStatus">
-            <option value="online">Online</option>
-            <option value="idle">Idle</option>
-            <option value="dnd">Do Not Disturb</option>
-            <option value="offline">Offline</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('profileModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="handleUpdateProfile()">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main UI -->
-  <div class="server-sidebar" id="serverSidebar">
-    <div class="server-add" onclick="openModal('createServerModal')" title="Create Server">➕</div>
-  </div>
-
-  <div class="channel-sidebar">
-    <div class="channel-header">
-      <div class="channel-header-title" id="serverName">The Loop</div>
-      <div class="channel-header-actions">
-        <button class="icon-btn" onclick="openModal('createChannelModal')" title="Create Channel">➕</button>
-        <button class="icon-btn" onclick="toggleMemberList()" title="Members">👥</button>
-        <button class="icon-btn" onclick="openModal('profileModal')" title="Profile">⚙️</button>
-      </div>
-    </div>
-    <div class="channel-list" id="channelList"></div>
-  </div>
-
-  <div class="main-container">
-    <div class="chat-header" id="chatHeader">
-      <div class="empty-state">
-        <div class="empty-state-icon">💬</div>
-        <div class="empty-state-text">Select a channel to start chatting</div>
       </div>
     </div>
 
-    <ul id="messages"></ul>
-
-    <div class="input-area" id="inputArea" style="display: none;">
-      <div class="input-wrapper">
-        <textarea id="messageInput" placeholder="Type a message..." rows="1"></textarea>
-        <div class="input-actions">
-          <button class="input-action-btn" onclick="triggerImageUpload()" title="Attach Image">🖼️</button>
-          <button class="input-action-btn" onclick="triggerFileUpload()" title="Attach File">📎</button>
-          <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(event)">
-          <input type="file" id="fileInput" onchange="handleFileUpload(event)">
+    <!-- Create Server Modal -->
+    <div class="modal" id="createServerModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Create Server</h2>
+          <button class="close-btn" onclick="closeModal('createServerModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Server Name</label>
+            <input type="text" id="serverName" placeholder="e.g., My Team" />
+          </div>
+          <div class="form-group">
+            <label>Server Icon (Emoji)</label>
+            <input type="text" id="serverIcon" placeholder="🎮" value="🎮" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('createServerModal')">Cancel</button>
+          <button class="btn btn-primary" onclick="handleCreateServer()">Create</button>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="sendMessage()" id="sendBtn" disabled>Send</button>
     </div>
-  </div>
 
-  <div class="member-list" id="memberList" style="display: none;">
-    <div class="member-list-header">Members</div>
-    <div id="memberListContent"></div>
+    <!-- Create Channel Modal -->
+    <div class="modal" id="createChannelModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Create Channel</h2>
+          <button class="close-btn" onclick="closeModal('createChannelModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Channel Type</label>
+            <select id="channelType">
+              <option value="text">📝 Text Channel</option>
+              <option value="voice">🔊 Voice Channel</option>
+              <option value="announcement">📢 Announcement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Channel Name</label>
+            <input type="text" id="channelName" placeholder="e.g., general" />
+          </div>
+          <div class="form-group">
+            <label>Topic (Optional)</label>
+            <textarea id="channelTopic" placeholder="What is this channel about?"></textarea>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="channelNSFW" /> NSFW Channel
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('createChannelModal')">Cancel</button>
+          <button class="btn btn-primary" onclick="handleCreateChannel()">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profileModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>User Profile</h2>
+          <button class="close-btn" onclick="closeModal('profileModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="profileUsername" />
+          </div>
+          <div class="form-group">
+            <label>Bio</label>
+            <textarea id="profileBio" placeholder="Tell us about yourself..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="profileStatus">
+              <option value="online">🟢 Online</option>
+              <option value="idle">🟡 Idle</option>
+              <option value="dnd">🔴 Do Not Disturb</option>
+              <option value="offline">⚪ Offline</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('profileModal')">Cancel</button>
+          <button class="btn btn-primary" onclick="handleUpdateProfile()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="serverSidebar">
+      <div class="server-icon" onclick="openModal('createServerModal')" title="Create Server">➕</div>
+    </div>
+
+    <!-- Channel Sidebar -->
+    <div class="channel-sidebar">
+      <div class="channel-header">
+        <div class="channel-header-title" id="serverName">The Loop</div>
+        <div class="channel-actions">
+          <button class="icon-btn" onclick="openModal('createChannelModal')" title="Create Channel">➕</button>
+          <button class="icon-btn" onclick="toggleSettings()" title="Settings">⚙️</button>
+        </div>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Find channel...">
+      </div>
+      <div class="channel-list" id="channelList"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="chat-header" id="chatHeader">
+        <div class="empty-state">
+          <div class="empty-state-icon">💬</div>
+          <div class="empty-state-text">Select a channel to start</div>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messagesContainer">
+        <ul id="messages"></ul>
+      </div>
+
+      <div class="input-area" id="inputArea" style="display: none;">
+        <div class="input-wrapper">
+          <div class="input-field">
+            <textarea id="messageInput" placeholder="Type a message..." rows="1"></textarea>
+            <div class="input-actions">
+              <button class="input-action-btn" onclick="triggerImageUpload()" title="Attach Image">🖼️</button>
+              <button class="input-action-btn" onclick="triggerEmojiPicker()" title="Emoji">😊</button>
+              <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(event)">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-small" onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Member List -->
+    <div class="member-list" id="memberList" style="display: none;">
+      <div class="member-header">Members</div>
+      <div id="memberListContent"></div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -883,13 +982,13 @@
 
     // Global State
     let currentUser = null;
+    let authToken = null;
     let servers = [];
     let currentServer = null;
     let channels = [];
     let currentChannel = null;
     let allUsers = [];
     let selectedImage = null;
-    let selectedFile = null;
     let typingTimeout = null;
     let messageIdBeingEdited = null;
 
@@ -902,7 +1001,6 @@
     socket.on('server_created', (server) => {
       servers.push(server);
       renderServers();
-      selectServer(server.id);
     });
 
     socket.on('channel_created', (channel) => {
@@ -923,8 +1021,7 @@
         const el = document.querySelector(`[data-message-id="${msg.id}"]`);
         if (el) {
           el.querySelector('.message-text').textContent = msg.text;
-          const edited = el.querySelector('.message-edited');
-          if (!edited) {
+          if (!el.querySelector('.message-edited')) {
             const span = document.createElement('span');
             span.className = 'message-edited';
             span.textContent = '(edited)';
@@ -936,58 +1033,92 @@
 
     socket.on('message_deleted', (messageId) => {
       const el = document.querySelector(`[data-message-id="${messageId}"]`);
-      if (el) el.remove();
+      if (el) {
+        el.classList.add('deleted');
+        el.querySelector('.message-text').textContent = '[Message deleted]';
+      }
     });
 
     socket.on('message_reacted', (msg) => {
       if (currentChannel && msg.channelId === currentChannel.id) {
         const el = document.querySelector(`[data-message-id="${msg.id}"]`);
         if (el) {
-          renderReactions(el.querySelector('.message-reactions'), msg.reactions);
+          let reactionsEl = el.querySelector('.message-reactions');
+          if (!reactionsEl) {
+            reactionsEl = document.createElement('div');
+            reactionsEl.className = 'message-reactions';
+            el.querySelector('.message-content').appendChild(reactionsEl);
+          }
+          renderReactions(reactionsEl, msg.reactions);
         }
       }
     });
 
     socket.on('user_typing', (data) => {
-      if (currentChannel && data.channelId === currentChannel.id) {
-        showTypingIndicator(data.username);
-      }
+      showTypingIndicator(data.username);
     });
 
-    socket.on('user_stop_typing', (data) => {
-      if (currentChannel && data.channelId === currentChannel.id) {
-        hideTypingIndicator();
-      }
+    socket.on('user_stop_typing', () => {
+      hideTypingIndicator();
+    });
+
+    socket.on('notification', (data) => {
+      showNotification(`You were mentioned by ${data.from}!`);
     });
 
     // UI Functions
-    function handleLogin() {
-      const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-      const username = document.getElementById('loginUsername').value.trim();
-
-      if (!email || !validateEmail(email)) {
-        alert('Please enter a valid email');
-        return;
-      }
-
-      if (!username) {
-        alert('Please enter a username');
-        return;
-      }
-
-      currentUser = {
-        userId: email.replace(/[^a-zA-Z0-9]/g, '_'),
-        username,
-        email
-      };
-
-      socket.emit('user_join', { email, username });
-      closeModal('loginModal');
-      loadServers();
+    function switchAuth(type) {
+      document.getElementById('loginForm').style.display = type === 'login' ? 'flex' : 'none';
+      document.getElementById('registerForm').style.display = type === 'register' ? 'flex' : 'none';
+      document.getElementById('authBtn').textContent = type === 'login' ? 'Login' : 'Register';
+      document.getElementById('authBtn').onclick = () => handleAuth(type);
     }
 
-    function validateEmail(email) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    async function handleAuth(type = 'login') {
+      const isLogin = document.getElementById('loginForm').style.display !== 'none';
+      
+      if (isLogin) {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          authToken = data.token;
+          currentUser = { userId: data.userId, username: data.username };
+          socket.emit('user_join', { token: authToken });
+          closeModal('authModal');
+          loadServers();
+        } else {
+          showNotification(data.error, 'danger');
+        }
+      } else {
+        const email = document.getElementById('registerEmail').value.trim();
+        const username = document.getElementById('registerUsername').value.trim();
+        const password = document.getElementById('registerPassword').value;
+
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, username, password })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          authToken = data.token;
+          currentUser = { userId: data.userId, username: data.username };
+          socket.emit('user_join', { token: authToken });
+          closeModal('authModal');
+          loadServers();
+        } else {
+          showNotification(data.error, 'danger');
+        }
+      }
     }
 
     function openModal(modalId) {
@@ -1003,7 +1134,7 @@
       const icon = document.getElementById('serverIcon').value.trim() || '🎮';
 
       if (!name) {
-        alert('Please enter a server name');
+        showNotification('Please enter a server name', 'danger');
         return;
       }
 
@@ -1016,19 +1147,25 @@
     function handleCreateChannel() {
       const type = document.getElementById('channelType').value;
       const name = document.getElementById('channelName').value.trim();
+      const topic = document.getElementById('channelTopic').value.trim();
+      const nsfw = document.getElementById('channelNSFW').checked;
 
       if (!name) {
-        alert('Please enter a channel name');
+        showNotification('Please enter a channel name', 'danger');
         return;
       }
 
       socket.emit('create_channel', {
         serverId: currentServer.id,
         name,
-        type
+        type,
+        topic,
+        nsfw
       });
 
       document.getElementById('channelName').value = '';
+      document.getElementById('channelTopic').value = '';
+      document.getElementById('channelNSFW').checked = false;
       closeModal('createChannelModal');
     }
 
@@ -1040,15 +1177,17 @@
       socket.emit('update_profile', { username, bio, status });
       socket.emit('set_status', status);
       closeModal('profileModal');
+      showNotification('Profile updated!', 'success');
     }
 
-    function loadServers() {
-      fetch('/api/servers')
-        .then(r => r.json())
-        .then(data => {
-          servers = data.filter(s => s.members.includes(currentUser.userId));
-          renderServers();
-        });
+    async function loadServers() {
+      const res = await fetch('/api/servers', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      const data = await res.json();
+      servers = data;
+      renderServers();
+      if (servers.length > 0) selectServer(servers[0].id);
     }
 
     function renderServers() {
@@ -1061,7 +1200,7 @@
           </div>
         `;
       }).join('');
-      container.innerHTML = serversHtml + '<div class="server-add" onclick="openModal(\'createServerModal\')" title="Create Server">➕</div>';
+      container.innerHTML = serversHtml + '<div class="server-icon" onclick="openModal(\'createServerModal\')" title="Create Server">➕</div>';
     }
 
     function selectServer(serverId) {
@@ -1071,32 +1210,32 @@
       document.getElementById('serverName').textContent = currentServer.name;
       currentChannel = null;
       selectedImage = null;
-      messageIdBeingEdited = null;
 
       loadChannels();
       renderServers();
     }
 
-    function loadChannels() {
+    async function loadChannels() {
       if (!currentServer) return;
-      fetch(`/api/servers/${currentServer.id}/channels`)
-        .then(r => r.json())
-        .then(data => {
-          channels = data;
-          renderChannels();
-          if (channels.length > 0) selectChannel(channels[0].id);
-        });
+      const res = await fetch(`/api/servers/${currentServer.id}/channels`);
+      const data = await res.json();
+      channels = data;
+      renderChannels();
+      if (channels.length > 0) selectChannel(channels[0].id);
     }
 
     function renderChannels() {
       const container = document.getElementById('channelList');
       container.innerHTML = channels.map(c => {
         const isActive = currentChannel && c.id === currentChannel.id;
-        const icon = c.type === 'voice' ? '🔊' : '#';
+        let icon = '#';
+        if (c.type === 'voice') icon = '🔊';
+        if (c.type === 'announcement') icon = '📢';
         return `
           <div class="channel-item ${isActive ? 'active' : ''}" onclick="selectChannel('${c.id}')">
-            <span class="channel-icon">${icon}</span>
+            <span>${icon}</span>
             <span>${escapeHtml(c.name)}</span>
+            ${c.nsfw ? '<span style="color: var(--danger);">18+</span>' : ''}
           </div>
         `;
       }).join('');
@@ -1108,48 +1247,42 @@
 
       socket.emit('join_channel', channelId);
       
-      const icon = currentChannel.type === 'voice' ? '🔊' : '#';
+      let icon = '#';
+      if (currentChannel.type === 'voice') icon = '🔊';
+      if (currentChannel.type === 'announcement') icon = '📢';
+
       document.getElementById('chatHeader').innerHTML = `
-        <div class="chat-header-left">
-          <div class="chat-icon">${icon}</div>
-          <div class="chat-title">${escapeHtml(currentChannel.name)}</div>
+        <div>
+          <div class="chat-title">${icon} ${escapeHtml(currentChannel.name)}</div>
+          <div class="chat-info">${currentChannel.topic || 'No topic set'}</div>
         </div>
       `;
 
       document.getElementById('inputArea').style.display = 'flex';
       document.getElementById('messageInput').value = '';
       selectedImage = null;
-      selectedFile = null;
-      messageIdBeingEdited = null;
 
       renderChannels();
       loadMessages();
     }
 
-    function loadMessages() {
-      fetch(`/api/messages/${currentChannel.id}`)
-        .then(r => r.json())
-        .then(messages => {
-          document.getElementById('messages').innerHTML = '';
-          messages.forEach(msg => displayMessage(msg));
-          scrollToBottom();
-        });
+    async function loadMessages() {
+      const res = await fetch(`/api/messages/${currentChannel.id}`);
+      const msgs = await res.json();
+      document.getElementById('messages').innerHTML = '';
+      msgs.forEach(msg => displayMessage(msg));
+      scrollToBottom();
     }
 
     function displayMessage(msg) {
       const container = document.getElementById('messages');
       const user = allUsers.find(u => u.userId === msg.userId);
-      const initials = (user?.username || 'U').charAt(0).toUpperCase();
+      const initials = (msg.username || 'U').charAt(0).toUpperCase();
       const messageTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       const messageEl = document.createElement('li');
       messageEl.className = 'message';
       messageEl.setAttribute('data-message-id', msg.id);
-
-      let reactionsHtml = '';
-      if (Object.keys(msg.reactions).length > 0) {
-        reactionsHtml = '<div class="message-reactions"></div>';
-      }
 
       messageEl.innerHTML = `
         <div class="message-avatar">${initials}</div>
@@ -1161,11 +1294,11 @@
           </div>
           <div class="message-text">${escapeHtml(msg.text)}</div>
           ${msg.image ? `<img src="${msg.image}" class="message-image" onclick="viewImage(this.src)">` : ''}
-          ${reactionsHtml}
+          ${Object.keys(msg.reactions).length > 0 ? '<div class="message-reactions"></div>' : ''}
           <div class="message-actions">
             <button class="action-btn" onclick="addReaction('${msg.id}')" title="React">😊</button>
-            ${msg.userId === currentUser.userId ? `
-              <button class="action-btn" onclick="editMessage('${msg.id}', '${escapeHtml(msg.text).replace(/'/g, "&#39;")}')" title="Edit">✏️</button>
+            ${msg.userId === currentUser?.userId ? `
+              <button class="action-btn" onclick="editMessage('${msg.id}')" title="Edit">✏️</button>
               <button class="action-btn" onclick="deleteMessage('${msg.id}')" title="Delete">🗑️</button>
             ` : ''}
           </div>
@@ -1192,7 +1325,7 @@
 
     function sendMessage() {
       const text = document.getElementById('messageInput').value.trim();
-      if (!text && !selectedImage && !selectedFile) return;
+      if (!text && !selectedImage) return;
 
       socket.emit('send_message', {
         channelId: currentChannel.id,
@@ -1202,141 +1335,9 @@
 
       document.getElementById('messageInput').value = '';
       selectedImage = null;
-      selectedFile = null;
       document.getElementById('sendBtn').disabled = true;
-
       socket.emit('stop_typing', { channelId: currentChannel.id });
     }
 
-    function editMessage(messageId, text) {
-      document.getElementById('messageInput').value = text;
-      messageIdBeingEdited = messageId;
-      document.getElementById('sendBtn').textContent = 'Save';
-    }
-
-    function deleteMessage(messageId) {
-      if (confirm('Delete this message?')) {
-        socket.emit('delete_message', {
-          channelId: currentChannel.id,
-          messageId
-        });
-      }
-    }
-
-    function addReaction(messageId) {
-      const emoji = prompt('Enter emoji:');
-      if (emoji) {
-        reactMessage(emoji);
-      }
-    }
-
-    function reactMessage(emoji) {
-      socket.emit('react_message', {
-        channelId: currentChannel.id,
-        messageId: messageIdBeingEdited || currentChannel.lastMessageId,
-        emoji
-      });
-    }
-
-    function triggerImageUpload() {
-      document.getElementById('imageInput').click();
-    }
-
-    function triggerFileUpload() {
-      document.getElementById('fileInput').click();
-    }
-
-    function handleImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        selectedImage = e.target.result;
-        document.getElementById('messageInput').placeholder = '📷 Image selected...';
-        document.getElementById('sendBtn').disabled = false;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      selectedFile = file.name;
-      document.getElementById('messageInput').placeholder = '📎 File selected...';
-      document.getElementById('sendBtn').disabled = false;
-    }
-
-    document.getElementById('messageInput').addEventListener('input', (e) => {
-      document.getElementById('sendBtn').disabled = !e.target.value.trim() && !selectedImage && !selectedFile;
-      
-      clearTimeout(typingTimeout);
-      if (currentChannel) {
-        socket.emit('typing', { channelId: currentChannel.id });
-        typingTimeout = setTimeout(() => {
-          socket.emit('stop_typing', { channelId: currentChannel.id });
-        }, 2000);
-      }
-    });
-
-    document.getElementById('messageInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    function scrollToBottom() {
-      const container = document.getElementById('messages');
-      container.scrollTop = container.scrollHeight;
-    }
-
-    function showTypingIndicator(username) {
-      const container = document.getElementById('messages');
-      let indicator = container.querySelector('.typing-indicator');
-      if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.className = 'typing-indicator';
-        container.appendChild(indicator);
-      }
-      indicator.innerHTML = `${escapeHtml(username)} is typing <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>`;
-      scrollToBottom();
-    }
-
-    function hideTypingIndicator() {
-      const indicator = document.querySelector('.typing-indicator');
-      if (indicator) indicator.remove();
-    }
-
-    function toggleMemberList() {
-      const memberList = document.getElementById('memberList');
-      memberList.style.display = memberList.style.display === 'none' ? 'flex' : 'none';
-    }
-
-    function updateMemberList() {
-      if (!currentServer) return;
-      const container = document.getElementById('memberListContent');
-      const members = allUsers.filter(u => currentServer.members.includes(u.userId));
-      container.innerHTML = members.map(u => `
-        <div class="member-item">
-          <span class="status-badge status-${u.status || 'offline'}"></span>
-          <div class="member-avatar">${u.username.charAt(0).toUpperCase()}</div>
-          <span>${escapeHtml(u.username)}</span>
-        </div>
-      `).join('');
-    }
-
-    function viewImage(src) {
-      window.open(src, '_blank');
-    }
-
-    function escapeHtml(text) {
-      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-      return text.replace(/[&<>"']/g, m => map[m]);
-    }
-
-    window.addEventListener('load', () => {
-      document.getElementById('loginEmail').focus();
-    });
-  </script>
-</body>
-</html>
+    function editMessage(messageId) {
+      const el = document.querySelector(`[
